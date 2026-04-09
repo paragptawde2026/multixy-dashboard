@@ -8,9 +8,10 @@
 import axios from 'axios'
 
 // In development: Vite proxies /api → http://localhost:8000 (see vite.config.js).
-// In production:  VITE_API_URL is set to the Render backend URL, e.g.
-//                 https://multixy-backend.onrender.com
-const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api'
+//   VITE_API_URL is not set in dev, so BASE = '/api' and the proxy handles it.
+// In production:  VITE_API_URL = 'https://multixy-backend-production.up.railway.app'
+//   BASE = that URL directly (no /api suffix — FastAPI routes start with /data, /model, etc.)
+const BASE = import.meta.env.VITE_API_URL ?? '/api'
 
 const api = axios.create({ baseURL: BASE })
 
