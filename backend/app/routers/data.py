@@ -524,9 +524,14 @@ def dataset_stats(dataset_id: int, db: Session = Depends(get_db)):
     hash_groups = {}  # hash -> [col_names]
     for col in cols_list:
         s = sample_df[col]
-        # Convert NaN to a sentinel string for consistent hashing
-        col_bytes = s.fillna("__NAN__").astype(str).values.tobytes()
-        h = hashlib.md5(col_bytes).hexdigest()
+        # Convert to string with NaN sentinel, join as a single string for hashing.
+        # Avoids .tobytes() which fails on object-dtype numpy arrays.
+        try:
+            col_str = "\x00".join(s.fillna("__NAN__").astype(str).tolist())
+            h = hashlib.md5(col_str.encode("utf-8", errors="replace")).hexdigest()
+        except Exception:
+            # If a column can't be hashed, give it a unique hash so it doesn't group
+            h = f"nohash_{col}"
         hash_groups.setdefault(h, []).append(col)
 
     dup_groups = []
