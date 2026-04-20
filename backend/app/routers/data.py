@@ -512,28 +512,36 @@ def dataset_stats(dataset_id: int, db: Session = Depends(get_db)):
             "zscore_outliers_3": zout,
         })
 
-    # ── Duplicate column detection ─────────────────────────────────────────
-    # Compare every pair of columns; group those with identical data.
-    dup_groups = []
-    processed  = set()
-    cols_list  = df.columns.tolist()
+    # ── Duplicate column detection (optimized) ─────────────────────────────
+    # Old approach: O(n² * rows) pairwise comparison — timed out on 44k-row datasets.
+    # New approach: hash each column once, group columns by hash (O(n * rows)).
+    # For large datasets (>10k rows), sample 5000 rows to speed up hashing.
+    import hashlib
 
-    for i, col1 in enumerate(cols_list):
-        if col1 in processed:
-            continue
-        group = [col1]
-        for col2 in cols_list[i + 1:]:
-            if col2 in processed:
-                continue
-            if df[col1].equals(df[col2]):          # NaN-aware comparison
-                group.append(col2)
-                processed.add(col2)
-        if len(group) > 1:
-            dup_groups.append({
-                "columns":        group,           # first = original, rest = duplicates
-                "suggested_drop": group[1:],       # suggest keeping the first occurrence
-            })
-        processed.add(col1)
+    cols_list = df.columns.tolist()
+    sample_df = df.sample(n=min(5000, len(df)), random_state=42) if len(df) > 10000 else df
+
+    hash_groups = {}  # hash -> [col_names]
+    for col in cols_list:
+        s = sample_df[col]
+        # Convert NaN to a sentinel string for consistent hashing
+        col_bytes = s.fillna("__NAN__").astype(str).values.tobytes()
+        h = hashlib.md5(col_bytes).hexdigest()
+        hash_groups.setdefault(h, []).append(col)
+
+    dup_groups = []
+    for cols in hash_groups.values():
+        if len(cols) > 1:
+            # Verify with full comparison on original data for correctness
+            verified = [cols[0]]
+            for c in cols[1:]:
+                if df[cols[0]].equals(df[c]):
+                    verified.append(c)
+            if len(verified) > 1:
+                dup_groups.append({
+                    "columns":        verified,
+                    "suggested_drop": verified[1:],
+                })
 
     return {
         "total_rows":              len(df),
