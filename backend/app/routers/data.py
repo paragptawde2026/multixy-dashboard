@@ -462,6 +462,22 @@ def dataset_stats(dataset_id: int, db: Session = Depends(get_db)):
     and estimated outlier counts using IQR (1.5x and 3.0x) and Z-score (3.0).
     Used by the Preprocessing page to let the user decide which steps to apply.
     """
+    import traceback
+    try:
+        return _compute_dataset_stats(dataset_id, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[ERROR] /data/{dataset_id}/stats failed:\n{tb}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stats computation failed: {type(e).__name__}: {str(e)}"
+        )
+
+
+def _compute_dataset_stats(dataset_id: int, db: Session):
+    """Internal: compute stats with full error propagation."""
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found.")
