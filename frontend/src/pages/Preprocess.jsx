@@ -330,6 +330,29 @@ export default function Preprocess() {
         </div>
       )}
 
+      {/* Show errors even when stats failed to load */}
+      {!loadingStats && error && !stats && selectedDataset && (
+        <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 mb-4">
+          <p className="text-red-400 text-sm font-semibold mb-1">Failed to load dataset statistics</p>
+          <p className="text-red-300 text-xs">{error}</p>
+          <p className="text-gray-400 text-xs mt-2">
+            Tip: Open DevTools (F12) → Network tab → click the failed <code>/stats</code> request
+            to see the backend response. Then share that with support.
+          </p>
+        </div>
+      )}
+
+      {/* Show empty state when dataset selected but no stats AND no error */}
+      {!loadingStats && !error && !stats && selectedDataset && (
+        <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg px-4 py-3 mb-4">
+          <p className="text-yellow-300 text-sm font-semibold">No statistics returned</p>
+          <p className="text-yellow-200/80 text-xs mt-1">
+            The backend returned an empty response for this dataset. Try re-selecting the dataset,
+            or check Railway backend logs for errors.
+          </p>
+        </div>
+      )}
+
       {/* ── 2. Data Summary ───────────────────────────────────────────────────── */}
       {stats && selectedDataset && (
         <>
